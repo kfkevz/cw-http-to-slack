@@ -1,0 +1,47 @@
+### Cloudwatch HTTP status code to Slack ###
+## Pre-requisite:
+- A CloudWatch agent must be configured on your server to send logs to CloudWatch Logs
+- Incoming webhook for Slack Channel
+
+## Download and install amazon-cloudwatch-agent.
+- Please refer to this link for guide (https://www.wellarchitectedlabs.com/cost/200_labs/200_aws_resource_optimization/4_memory_plugin/).
+- sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
+
+## Make sure the EC2 instance that will monitor the logs have IAM Role attached with CloudWatchAgentServerPolicy policy.
+## Configure the CloudWatch Agent by running below command.
+- sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-config-wizard
+## Provide the following answers:
+ -  On which OS are you planning to use the agent? Answer: linux
+ -  Are you using EC2 or On-Premises hosts? Answer: EC2
+ -  Which user are you planning to run the agent? Answer: root
+ -  Do you want to turn on StatsD daemon? Answer: NO
+ -  Do you want to monitor metrics from CollectD? Answer: NO
+ -  Do you want to monitor any host metrics? Answer: NO
+ -  Do you have any existing CloudWatch Log Agent? Answer: NO
+ -  Do you want to monitor any log files? Answer: YES
+ -  Log file path: /home/ubuntu/nginx/logs/
+ -  Log group name: nginx
+ -  Log stream name: [{instance_id}] (default)
+ -  Do you want to specify any additional log files to monitor? Answer: NO
+ -  Do you want to store the config in the SSM parameter store? Answer: NO
+ 
+## Start the Cloudwatch Agent.
+- sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s
+- sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-config-wizard
+
+## Check the status of Cloudwatch Agent.
+- systemctl status amazon-cloudwatch-agent
+- sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -a status
+
+## Create a Lambda function. For runtime, choose Python 3.9 and leave the default execution role as is. 
+- Copy the lambda function script and deploy it.
+
+## Make sure to create custom format for the nginx logs. Please refer to the log_format file.
+## Go to the CloudWatch console and click on Log groups. Search and click the log group you want to monitor.
+ - On Subscription Filters, click Create Lambda Subscription filter.
+ - For destination, select the Lambda function that you created.
+ - Log format: Space Delimited
+ - Subscription Filter Pattern: [time_stamp ,ip_addr,request_method,status=5*, separator, method, resource, request,http_host, http_referer, http_user_agent]
+ - Subscription Filter Name: Nginx Logs (Provide descriptive name)
+## Click Test Pattern to check if it will show the desired logs pattern.
+## Do a simulation of 5xx HTTP status codes in your web server to test if you will receive Slack alert.
