@@ -1,0 +1,9 @@
+http {
+    # ... other configurations ...
+
+    log_format custom_format '[$time_local] $remote_addr $request_method $status - '
+                              '$request $server_protocol $host '
+                              '$http_referer $http_user_agent';
+
+    access_log /var/log/nginx/access.log custom_format;
+}
