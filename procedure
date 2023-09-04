@@ -42,8 +42,8 @@
  - Need to create two subscriptions filter if you want to monitor http 4xx and 5xx status code.
  - For destination, select the Lambda function that you created.
  - Log format: Space Delimited
- - Subscription Filter Pattern for http 4xx: [time_stamp ,ip_addr,request_method,status=4*, separator, method, resource, request,http_host, http_referer, http_user_agent]
- - Subscription Filter Pattern for http 5xx: [time_stamp ,ip_addr,request_method,status=5*, separator, method, resource, request,http_host, http_referer, http_user_agent]
+ - Subscription Filter Pattern for http 4xx: [time_stamp ,ip_addr,request_method,status=4*, separator, method, resource, request,http_host, host, http_referer, http_user_agent]
+ - Subscription Filter Pattern for http 5xx: [time_stamp ,ip_addr,request_method,status=5*, separator, method, resource, request,http_host, host, http_referer, http_user_agent]
  - Subscription Filter Name: Nginx Logs (Provide descriptive name)
 ## Click Test Pattern to check if it will show the desired logs pattern.
 ## Do a simulation of 5xx HTTP status codes in your web server to test if you will receive Slack alert.
