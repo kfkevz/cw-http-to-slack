@@ -2,6 +2,7 @@
 ## Pre-requisite:
 - A CloudWatch agent must be configured on your server to send logs to CloudWatch Logs
 - Incoming webhook for Slack Channel
+- IAM Role with CloudWatchAgentServerPolicy
 
 ## Download and install amazon-cloudwatch-agent.
 - Please refer to this link for guide (https://www.wellarchitectedlabs.com/cost/200_labs/200_aws_resource_optimization/4_memory_plugin/).
@@ -27,21 +28,22 @@
  
 ## Start the Cloudwatch Agent.
 - sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s
-- sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-config-wizard
 
 ## Check the status of Cloudwatch Agent.
 - systemctl status amazon-cloudwatch-agent
 - sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -a status
 
 ## Create a Lambda function. For runtime, choose Python 3.9 and leave the default execution role as is. 
-- Copy the lambda function script and deploy it.
+- Copy the lambda function code and deploy it.
 
-## Make sure to create custom format for the nginx logs. Please refer to the log_format file.
+## Make sure to set custom log format for the nginx logs. Please refer to the log_format file.
 ## Go to the CloudWatch console and click on Log groups. Search and click the log group you want to monitor.
  - On Subscription Filters, click Create Lambda Subscription filter.
+ - Need to create two subscriptions filter if you want to monitor http 4xx and 5xx status code.
  - For destination, select the Lambda function that you created.
  - Log format: Space Delimited
- - Subscription Filter Pattern: [time_stamp ,ip_addr,request_method,status=5*, separator, method, resource, request,http_host, http_referer, http_user_agent]
+ - Subscription Filter Pattern for http 4xx: [time_stamp ,ip_addr,request_method,status=4*, separator, method, resource, request,http_host, http_referer, http_user_agent]
+ - Subscription Filter Pattern for http 5xx: [time_stamp ,ip_addr,request_method,status=5*, separator, method, resource, request,http_host, http_referer, http_user_agent]
  - Subscription Filter Name: Nginx Logs (Provide descriptive name)
 ## Click Test Pattern to check if it will show the desired logs pattern.
 ## Do a simulation of 5xx HTTP status codes in your web server to test if you will receive Slack alert.

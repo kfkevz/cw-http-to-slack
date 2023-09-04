@@ -1,0 +1,151 @@
+import json
+import urllib3
+import base64
+import zlib
+from datetime import datetime, timedelta
+
+# Initialize HTTP client and Slack webhook URL
+http = urllib3.PoolManager()
+hook = "<webhook_url>"
+
+# Sample 5xx error codes and thresholds for changing severity
+error_codes = {
+    '400': 'Bad Request',
+    '401': 'Unauthorized',
+    '402': 'Payment Required',
+    '403': 'Forbidden',
+    '404': 'Not Found',
+    '405': 'Method Not Allowed',
+    '500': 'Internal Server Error',
+    '501': 'Not Implemented',
+    '502': 'Bad Gateway',
+    '503': 'Service Unavailable',
+    '504': 'Gateway Timeout',
+    '505': 'HTTP Version Not Supported'
+}
+
+warning_threshold = 4
+critical_threshold = 5
+
+# Global variables to keep track of error counts and last reset time
+error_counts = {code: 0 for code in error_codes}
+last_reset_time = datetime.now()
+
+# Timeframe for error count resets (e.g., 30 seconds)
+reset_timeframe = timedelta(seconds=55)
+
+# Cooldown period for all critical alerts (1 minute)
+critical_cooldown = timedelta(minutes=2)
+last_critical_alert_time = datetime.now() - critical_cooldown  # Initialize with a time in the past
+
+# Cooldown period for all warning alerts (1 minute)
+warning_cooldown = timedelta(minutes=2)
+last_warning_alert_time = datetime.now() - warning_cooldown  # Initialize with a time in the past
+
+# Expiry time for error counts (e.g., 10 minutes)
+error_count_expiry = timedelta(minutes=3)
+
+# Lambda function entry point
+def lambda_handler(event, context):
+    encoded_data = event['awslogs']['data']
+    decoded_data = json.loads(zlib.decompress(base64.b64decode(encoded_data), 16 + zlib.MAX_WBITS).decode('utf-8'))
+    log_events = decoded_data['logEvents'][0]['extractedFields']
+
+    STATUS_CODE = log_events.get('status', '')
+    HTTP_REFERER = log_events.get('http_referer', '')
+    HOST = log_events.get('host', '')
+
+    # Check if the log entry contains a valid HTTP status code
+    if STATUS_CODE in error_codes:
+        error_counts[STATUS_CODE] += 1
+        severity = check_threshold(STATUS_CODE)
+
+        if severity:
+            send_slack_alert(STATUS_CODE, HTTP_REFERER, HOST, severity)
+
+        # Check if error counts need to be reset due to expiry or timeframe
+        current_time = datetime.now()
+        if current_time - last_reset_time >= error_count_expiry:
+            reset_error_counts()
+        elif current_time - last_reset_time >= reset_timeframe:
+            reset_error_counts()
+
+# Get current time and date
+def get_current_time():
+    return datetime.now().strftime("%H:%M:%S")
+
+def get_current_date():
+    return datetime.now().strftime("%Y.%m.%d")
+
+# Check if an alert should be sent based on error counts and thresholds
+def check_threshold(status_code):
+    global last_critical_alert_time, last_warning_alert_time
+    total_errors = sum(error_counts.values())
+
+    if total_errors >= critical_threshold:
+        # Check if the cooldown period for critical alerts has passed
+        current_time = datetime.now()
+        if current_time - last_critical_alert_time >= critical_cooldown:
+            last_critical_alert_time = current_time  # Update the last critical alert time
+            reset_error_counts()  # Reset error counts and the cooldown timer
+            return "Critical"
+    elif total_errors >= warning_threshold:
+        # Check if the cooldown period for warning alerts has passed
+        current_time = datetime.now()
+        if current_time - last_warning_alert_time >= warning_cooldown:
+            last_warning_alert_time = current_time  # Update the last warning alert time
+            reset_error_counts()  # Reset error counts and the cooldown timer
+            return "Warning"
+    else:
+        return None  # No alert to be sent
+
+# Send a Slack alert message
+def send_slack_alert(STATUS_CODE, HTTP_REFERER, HOST, severity):
+    slack_message = {
+        "blocks": [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Alert from AWS Cloudwatch*"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*PROBLEM:* - Too many HTTP {STATUS_CODE} responses @ {HTTP_REFERER} - ({HOST})"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Started Time:* {get_current_time()} - {get_current_date()}"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Severity:* {severity}"
+                }
+            },
+            {
+                "type": "divider"
+            }
+        ]
+    }
+
+    enc_msg = json.dumps(slack_message).encode('utf-8')
+
+    # Send message to Slack (e.g., HTTP 503 Error on tutorialsdojo.com)
+    http.request('POST', hook, body=enc_msg, headers={'Content-type': 'application/json'})
+
+# Reset error counts and update the last reset time
+def reset_error_counts():
+    global last_reset_time
+    for code in error_codes:
+        error_counts[code] = 0
+    last_reset_time = datetime.now()
+
