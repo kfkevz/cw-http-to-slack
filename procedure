@@ -1,4 +1,4 @@
-### Cloudwatch HTTP status code to Slack ###
+## Cloudwatch HTTP status code to Slack ##
 ## Pre-requisite:
 - A CloudWatch agent must be configured on your server to send logs to CloudWatch Logs
 - Incoming webhook for Slack Channel
