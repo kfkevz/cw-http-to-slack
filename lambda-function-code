@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 http = urllib3.PoolManager()
 hook = "<webhook_url>"
 
-# Sample 5xx error codes and thresholds for changing severity
+# Http error codes
 error_codes = {
     '400': 'Bad Request',
     '401': 'Unauthorized',
@@ -24,6 +24,7 @@ error_codes = {
     '505': 'HTTP Version Not Supported'
 }
 
+# Threshold for alert severity
 warning_threshold = 4
 critical_threshold = 5
 
